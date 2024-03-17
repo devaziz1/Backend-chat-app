@@ -4,40 +4,18 @@ const User = require("../models/userModel");
 const Chat = require("../models/chatModel");
 const multer = require("multer");
 const express = require("express");
-const router = express.Router();
-const app = express();
-
-app.use(express.json());
+const router = express.Router(); 
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-//@description     Get all Messages
-//@route           GET /api/Message/:chatId
-//@access          Protected
-const allMessages = asyncHandler(async (req, res) => {
-  try {
-    const messages = await Message.find({ chat: req.params.chatId })
-      .populate("sender", "name pic email")
-      .populate("chat");
-    res.json(messages);
-  } catch (error) {
-    res.status(400);
-    throw new Error(error.message);
-  }
-});
 
 
-
-//@description     Create New Message
-//@route           POST /api/Message/
-//@access          Protected
-
-const sendMessage = asyncHandler(async (req, res) => {
-  console.log("send message file controller function");
-
-  const { content, chatId, file, filename } = req.body;
+router.post("/sendfile", upload.single("file"), async (req, res, next) => {
+  console.log("send file API");
   console.log(req.body);
+  const { content, chatId } = req.body;
+
   if (!content || !chatId) {
     console.log("Invalid data passed into request");
     return res.sendStatus(400);
@@ -47,8 +25,6 @@ const sendMessage = asyncHandler(async (req, res) => {
     sender: req.user._id,
     content: content,
     chat: chatId,
-    file: Buffer.from(file, "base64"),
-    filename,
   };
 
   try {
@@ -70,4 +46,4 @@ const sendMessage = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = { allMessages, sendMessage };
+module.exports = router;

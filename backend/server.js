@@ -5,9 +5,23 @@ const dotenv = require("dotenv");
 const userRoutes = require("./routes/userRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const messageRoutes = require("./routes/messageRoutes");
+const MesgRouter = require("./controllers/fileController");
+
 
 
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
+
+const multer = require("multer");
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/"); // Specify the desired upload path
+  },
+  filename: (req, file, cb) => {
+    cb(null, file.originalname); // Use original filename
+  },
+});
+
 
 
 const app = express();
@@ -18,6 +32,10 @@ app.get("/", (req, res) => {
   res.send("App is runing... ");
 });
 
+
+
+
+app.use("/api", MesgRouter);
 app.use("/api/user", userRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/message", messageRoutes);
@@ -25,7 +43,6 @@ app.use("/api/message", messageRoutes);
 // Error Handling middlewares
 app.use(notFound);
 app.use(errorHandler);
-
 
 // MongoDB connection URI
 const uri = "mongodb://localhost:27017/Chat-app";
@@ -42,9 +59,7 @@ db.once("open", function () {
   console.log("Connected to MongoDB");
 });
 
-
-
-const PORT = process.env.PORT || 5000;
+const PORT = 5000;
 
 const server = app.listen(
   PORT,
@@ -73,21 +88,83 @@ io.on("connection", (socket) => {
   socket.on("typing", (room) => socket.in(room).emit("typing"));
   socket.on("stop typing", (room) => socket.in(room).emit("stop typing"));
 
-  socket.on("new message", (newMessageRecieved) => {
-    var chat = newMessageRecieved.chat;
+  socket.on("new message", (newMessageReceived) => {
+    try {
+      const { chat, sender, content, filename } = newMessageReceived;
+      
+      if (!chat.users) throw new Error("chat.users not defined");
 
-    if (!chat.users) return console.log("chat.users not defined");
+      chat.users.forEach((user) => {
+        if (user._id === sender._id) return;
 
-    chat.users.forEach((user) => {
-      if (user._id == newMessageRecieved.sender._id) return;
+       
 
-      socket.in(user._id).emit("message recieved", newMessageRecieved);
-    });
+        const messageToEmit = {
+          chat,
+          sender,
+          content,
+          filename,
+        };
+
+        console.log("New message emitted:", messageToEmit.filename);
+
+       
+        socket.to(user._id).emit("message recieved", messageToEmit);
+      });
+    } catch (error) {
+      console.error("Error handling new message:", error);
+    }
   });
+
+
+
+  // --------------- with file sharing --------------------
+  // socket.on("new message", (newMessageReceived) => {
+  //   try {
+  //     const { chat, sender, content, file } = newMessageReceived; 
+
+  //     if (!chat.users) throw new Error("chat.users not defined");
+
+  //     chat.users.forEach((user) => {
+  //       if (user._id === sender._id) return; 
+
+  //       const messageToEmit = {
+  //         chat,
+  //         sender,
+  //         content,
+  //         fileName: file ? file.filename : null,
+  //       };
+
+  //       console.log("New message emitted" + messageToEmit.fileName);
+
+        
+  //       if (file) {
+  //         messageToEmit.file = file; 
+  //       }
+
+  //       socket.to(user._id).emit("message recieved", messageToEmit);
+  //     });
+  //   } catch (error) {
+  //     console.error("Error handling new message:", error);
+  //   }
+  // });
+
+  // ----------------- New Message without file sharing --------------------
+
+  // socket.on("new message", (newMessageRecieved) => {
+  //   var chat = newMessageRecieved.chat;
+
+  //   if (!chat.users) return console.log("chat.users not defined");
+
+  //   chat.users.forEach((user) => {
+  //     if (user._id == newMessageRecieved.sender._id) return;
+
+  //     socket.in(user._id).emit("message recieved", newMessageRecieved);
+  //   });
+  // });
 
   socket.off("setup", () => {
     console.log("USER DISCONNECTED");
     socket.leave(userData._id);
   });
 });
-
