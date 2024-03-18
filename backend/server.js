@@ -6,8 +6,8 @@ const userRoutes = require("./routes/userRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const MesgRouter = require("./controllers/fileController");
-
-
+const cors = require("cors");
+const bodyParser = require("body-parser");
 
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
@@ -22,18 +22,21 @@ const storage = multer.diskStorage({
   },
 });
 
-
-
 const app = express();
 dotenv.config();
 app.use(express.json());
+app.use(cors());
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+app.use(
+  cors({
+    origin: ["http://localhost:3000"],
+  })
+);
 
 app.get("/", (req, res) => {
   res.send("App is runing... ");
 });
-
-
-
 
 app.use("/api", MesgRouter);
 app.use("/api/user", userRoutes);
@@ -91,13 +94,19 @@ io.on("connection", (socket) => {
   socket.on("new message", (newMessageReceived) => {
     try {
       const { chat, sender, content, filename } = newMessageReceived;
-      
-      if (!chat.users) throw new Error("chat.users not defined");
+
+      console.log("Inside new message emit function");
+      console.log(newMessageReceived);
+
+      if (!chat || !chat.users || !sender || !sender._id) {
+        console.log("Inside error function");
+        console.log(chat.users);
+        console.log(sender._id);
+        throw new Error("Invalid chat, sender, or sender._id not defined");
+      }
 
       chat.users.forEach((user) => {
         if (user._id === sender._id) return;
-
-       
 
         const messageToEmit = {
           chat,
@@ -108,25 +117,22 @@ io.on("connection", (socket) => {
 
         console.log("New message emitted:", messageToEmit.filename);
 
-       
-        socket.to(user._id).emit("message recieved", messageToEmit);
+        socket.to(user._id).emit("message received", messageToEmit);
       });
     } catch (error) {
       console.error("Error handling new message:", error);
     }
   });
 
-
-
   // --------------- with file sharing --------------------
   // socket.on("new message", (newMessageReceived) => {
   //   try {
-  //     const { chat, sender, content, file } = newMessageReceived; 
+  //     const { chat, sender, content, file } = newMessageReceived;
 
   //     if (!chat.users) throw new Error("chat.users not defined");
 
   //     chat.users.forEach((user) => {
-  //       if (user._id === sender._id) return; 
+  //       if (user._id === sender._id) return;
 
   //       const messageToEmit = {
   //         chat,
@@ -137,9 +143,8 @@ io.on("connection", (socket) => {
 
   //       console.log("New message emitted" + messageToEmit.fileName);
 
-        
   //       if (file) {
-  //         messageToEmit.file = file; 
+  //         messageToEmit.file = file;
   //       }
 
   //       socket.to(user._id).emit("message recieved", messageToEmit);

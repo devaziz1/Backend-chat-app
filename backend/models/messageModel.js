@@ -7,7 +7,9 @@ const messageSchema = mongoose.Schema(
     chat: { type: mongoose.Schema.Types.ObjectId, ref: "Chat" },
     readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     file: { type: mongoose.Schema.Types.ObjectId, ref: "File" },
-    
+    filename: {
+      type: String,
+    },
   },
   { timestamps: true }
 );
